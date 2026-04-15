@@ -1,11 +1,12 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, use } from 'react';
 import { notFound } from 'next/navigation';
 import { getProductBySlug } from '../../../../lib/products.data';
 import { Navbar } from '../../../../components/ui/Navbar';
 import { FlavorRadar } from '../../../../components/flavor/FlavorRadar';
 import { useCart } from '../../../../contexts/cart.context';
+
 
 const ROAST_COLORS: Record<string, string> = {
   'Light': '#F5C27A',
@@ -15,7 +16,8 @@ const ROAST_COLORS: Record<string, string> = {
   'Dark': '#4A2010',
 };
 
-export default function ProductDetailPage({ params }: { params: { locale: string; slug: string } }) {
+export default function ProductDetailPage({ params: paramsPromise }: { params: Promise<{ locale: string; slug: string }> }) {
+  const params = use(paramsPromise);
   const locale = params?.locale ?? 'th';
   const product = getProductBySlug(params.slug);
   if (!product) notFound();

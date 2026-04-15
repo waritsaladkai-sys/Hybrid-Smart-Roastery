@@ -12,9 +12,5 @@ export default function RootLayout({
 }: {
   children: React.ReactNode;
 }) {
-  return (
-    <html lang="th">
-      <body>{children}</body>
-    </html>
-  );
+  return children as any;
 }

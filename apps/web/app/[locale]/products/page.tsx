@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, use } from 'react';
 import { PRODUCTS } from '../../../lib/products.data';
 import { Navbar } from '../../../components/ui/Navbar';
 
@@ -8,7 +8,8 @@ const ROAST_FILTERS = ['ทั้งหมด', 'Light', 'Medium Light', 'Medium
 const ORIGIN_FILTERS = ['ทั้งหมด', 'Ethiopia', 'Colombia', 'Thailand', 'Kenya', 'Myanmar', 'Brazil'];
 const PROCESS_FILTERS = ['ทั้งหมด', 'Natural', 'Washed', 'Honey'];
 
-export default function ProductsPage({ params }: { params: { locale: string } }) {
+export default function ProductsPage({ params: paramsPromise }: { params: Promise<{ locale: string }> }) {
+  const params = use(paramsPromise);
   const [roast, setRoast] = useState('ทั้งหมด');
   const [origin, setOrigin] = useState('ทั้งหมด');
   const [process, setProcess] = useState('ทั้งหมด');
