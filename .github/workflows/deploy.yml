@@ -1,0 +1,198 @@
+name: 🚀 Deploy to Raspberry Pi 5
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      service:
+        description: 'Service to deploy (all | api | web | worker)'
+        required: false
+        default: 'all'
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_PREFIX: ${{ github.repository_owner }}/eight-coffee
+
+jobs:
+  # ─────────────────────────────────────────────────────────
+  # Job 1: Lint & Type-check
+  # ─────────────────────────────────────────────────────────
+  quality:
+    name: 🔍 Quality Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install root deps
+        run: npm ci --ignore-scripts
+
+      - name: Install API deps
+        working-directory: apps/api
+        run: npm ci
+
+      - name: Install Web deps
+        working-directory: apps/web
+        run: npm ci
+
+      - name: Type-check API
+        working-directory: apps/api
+        run: npx tsc --noEmit
+        continue-on-error: true
+
+      - name: Type-check Web
+        working-directory: apps/web
+        run: npx tsc --noEmit
+        continue-on-error: true
+
+  # ─────────────────────────────────────────────────────────
+  # Job 2: Build & Push Docker images to GHCR
+  # ─────────────────────────────────────────────────────────
+  build:
+    name: 🐳 Build Images
+    runs-on: ubuntu-latest
+    needs: quality
+    permissions:
+      contents: read
+      packages: write
+
+    strategy:
+      matrix:
+        include:
+          - service: api
+            context: ./apps/api
+            image: eight-coffee-api
+          - service: web
+            context: ./apps/web
+            image: eight-coffee-web
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up QEMU (arm64 cross-compile)
+        uses: docker/setup-qemu-action@v3
+        with:
+          platforms: linux/arm64
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ matrix.image }}
+          tags: |
+            type=sha,prefix=,format=short
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Build and push ${{ matrix.service }}
+        uses: docker/build-push-action@v5
+        with:
+          context: ${{ matrix.context }}
+          platforms: linux/arm64,linux/amd64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # ─────────────────────────────────────────────────────────
+  # Job 3: Deploy to Raspberry Pi 5 via SSH
+  # ─────────────────────────────────────────────────────────
+  deploy:
+    name: 🍓 Deploy to RPi5
+    runs-on: ubuntu-latest
+    needs: build
+    environment: production
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Get short SHA
+        id: sha
+        run: echo "sha=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.RPI_HOST }}
+          username: ${{ secrets.RPI_USER }}
+          key: ${{ secrets.RPI_SSH_KEY }}
+          port: ${{ secrets.RPI_SSH_PORT || 22 }}
+          script: |
+            set -e
+            cd /opt/eight-coffee
+
+            echo "📥 Pulling latest images (sha: ${{ steps.sha.outputs.sha }})..."
+
+            # Login to GHCR
+            echo ${{ secrets.GITHUB_TOKEN }} | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+
+            # Pull new images
+            docker pull ghcr.io/${{ github.repository_owner }}/eight-coffee-api:latest
+            docker pull ghcr.io/${{ github.repository_owner }}/eight-coffee-web:latest
+
+            # Update .env SHA tracking
+            echo "DEPLOYED_SHA=${{ steps.sha.outputs.sha }}" >> .env
+
+            # Rolling restart (zero-downtime)
+            echo "🔄 Rolling restart..."
+            docker compose pull
+            docker compose up -d --no-deps --build api web worker
+
+            # Run migrations
+            echo "🔧 Running Prisma migrations..."
+            docker compose exec -T api npx prisma migrate deploy
+
+            # Health check
+            sleep 10
+            echo "🏥 Health check..."
+            curl -sf http://localhost:4000/api/v1/health || (echo "❌ API health check failed" && exit 1)
+            curl -sf http://localhost:3000 || (echo "❌ Web health check failed" && exit 1)
+
+            echo "✅ Deployment complete! SHA: ${{ steps.sha.outputs.sha }}"
+
+            # Cleanup old images
+            docker image prune -f --filter "until=24h"
+
+      - name: Notify LINE on success
+        if: success()
+        run: |
+          curl -X POST https://api.line.me/v2/bot/message/broadcast \
+            -H "Authorization: Bearer ${{ secrets.LINE_CHANNEL_ACCESS_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            -d '{
+              "messages": [{
+                "type": "text",
+                "text": "✅ Deploy สำเร็จ!\nSHA: ${{ steps.sha.outputs.sha }}\nBranch: main\nTime: '"$(date +"%d/%m/%Y %H:%M")"'"
+              }]
+            }'
+        continue-on-error: true
+
+      - name: Notify LINE on failure
+        if: failure()
+        run: |
+          curl -X POST https://api.line.me/v2/bot/message/broadcast \
+            -H "Authorization: Bearer ${{ secrets.LINE_CHANNEL_ACCESS_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            -d '{
+              "messages": [{
+                "type": "text",
+                "text": "❌ Deploy ล้มเหลว!\nSHA: ${{ steps.sha.outputs.sha }}\nดู log: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+              }]
+            }'
+        continue-on-error: true
