@@ -2,7 +2,8 @@
 
 > **ระบบ Web ERP + E-Commerce สำหรับร้านคั่วกาแฟ** | รัน On-Premise บน Raspberry Pi 5 ผ่าน Docker + Cloudflare Tunnel
 
-[![Deploy](https://github.com/waritp-lgtm/Hybrid-Smart-Roastery/actions/workflows/deploy.yml/badge.svg)](https://github.com/waritp-lgtm/Hybrid-Smart-Roastery/actions/workflows/deploy.yml)
+[![Deploy](https://github.com/waritp-lgtm/H
+ybrid-Smart-Roastery/actions/workflows/deploy.yml/badge.svg)](https://github.com/waritp-lgtm/Hybrid-Smart-Roastery/actions/workflows/deploy.yml)
 
 ---
 
