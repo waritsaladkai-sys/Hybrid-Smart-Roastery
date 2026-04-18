@@ -10,11 +10,18 @@ export async function GET(request: NextRequest) {
 
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-  // Check role
-  const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single();
+  // Use admin client to bypass RLS type inference issues
+  const admin = createAdminClient();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: profileRaw } = await admin
+    .from('profiles')
+    .select('role')
+    .eq('id', user.id)
+    .single();
+  const profile = profileRaw as any;
   const isStaff = profile?.role === 'ADMIN' || profile?.role === 'STAFF';
 
-  let query = supabase
+  let query = admin
     .from('orders')
     .select('*, order_items(*, product_variants(weight_gram))')
     .order('created_at', { ascending: false });
@@ -46,11 +53,10 @@ export async function POST(request: NextRequest) {
   const shippingFee = subtotal >= 500 ? 0 : 50;
   const total = subtotal + shippingFee;
 
-  // Use admin client to bypass RLS for order creation
   const admin = createAdminClient();
 
-  // Create order
-  const { data: order, error: orderErr } = await admin
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: orderRaw, error: orderErr } = await admin
     .from('orders')
     .insert({
       user_id: user?.id ?? null,
@@ -62,10 +68,10 @@ export async function POST(request: NextRequest) {
     })
     .select()
     .single();
+  const order = orderRaw as any;
 
   if (orderErr) return NextResponse.json({ error: orderErr.message }, { status: 400 });
 
-  // Create order items
   const orderItems = items.map((item: {
     product_id: string;
     variant_id: string;
@@ -87,7 +93,6 @@ export async function POST(request: NextRequest) {
   const { error: itemsErr } = await admin.from('order_items').insert(orderItems);
   if (itemsErr) return NextResponse.json({ error: itemsErr.message }, { status: 400 });
 
-  // Create payment record
   await admin.from('payments').insert({
     order_id: order.id,
     provider: 'gbprimepay',

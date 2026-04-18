@@ -1,40 +1,40 @@
+import { createServerSupabaseClient } from '../../../lib/supabase';
 import { NextRequest, NextResponse } from 'next/server';
 
 export async function GET(
   req: NextRequest,
-  { params }: { params: { sku: string } },
+  context: { params: Promise<{ sku: string }> },
 ) {
-  const { sku } = params;
+  const { sku } = await context.params;
+  const supabase = await createServerSupabaseClient();
 
-  // Fetch product + roasted batch info from NestJS API
-  const res = await fetch(
-    `${process.env.NEXT_PUBLIC_API_URL}/api/v1/products/sku/${sku}`,
-    { next: { revalidate: 3600 } }, // Cache 1 hour
-  );
+  const { data: product, error } = await supabase
+    .from('products')
+    .select('*, product_variants(*)')
+    .eq('slug', sku)
+    .eq('is_active', true)
+    .single();
 
-  if (!res.ok) return NextResponse.json({ error: 'Product not found' }, { status: 404 });
-  const product = await res.json();
+  if (error || !product) {
+    return NextResponse.json({ error: 'Product not found' }, { status: 404 });
+  }
+
   return NextResponse.json(product);
 }
 
 export async function POST(
   req: NextRequest,
-  { params }: { params: { sku: string } },
+  context: { params: Promise<{ sku: string }> },
 ) {
-  // Submit taste rating from QR scan
+  const { sku } = await context.params;
   const body = await req.json();
-  const res = await fetch(
-    `${process.env.NEXT_PUBLIC_API_URL}/api/v1/reviews`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        ...body,
-        productSku: params.sku,
-        source: 'qr',
-      }),
-    },
-  );
-  const data = await res.json();
-  return NextResponse.json(data, { status: res.status });
+
+  // Taste rating stub — Phase 2: save to Supabase reviews table
+  console.log(`[Brew Review] SKU: ${sku}`, body);
+
+  return NextResponse.json({
+    received: true,
+    sku,
+    message: 'Thank you for your review!',
+  });
 }

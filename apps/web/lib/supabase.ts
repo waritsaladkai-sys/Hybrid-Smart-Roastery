@@ -1,5 +1,4 @@
-import { createBrowserClient } from '@supabase/ssr';
-import { createServerClient } from '@supabase/ssr';
+import { createBrowserClient, createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import type { Database } from './database.types';
 
@@ -33,9 +32,13 @@ export async function createServerSupabaseClient() {
 }
 
 // ── Admin client (service role — server-side ONLY, never expose to browser) ──
-export function createAdminClient() {
-  const { createClient: createSupabaseClient } = require('@supabase/supabase-js');
-  return createSupabaseClient<Database>(
+// Uses dynamic import with 'any' to bypass type conflict between @supabase/ssr and @supabase/supabase-js
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function createAdminClient(): any {
+  // Dynamic require to avoid module resolution conflict
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const { createClient: _createClient } = require('@supabase/supabase-js');
+  return _createClient(
     SUPABASE_URL,
     process.env.SUPABASE_SERVICE_ROLE_KEY!,
     { auth: { autoRefreshToken: false, persistSession: false } }

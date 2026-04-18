@@ -94,7 +94,7 @@ export default function LiffPage() {
         await liff.init({ liffId });
         if (!liff.isLoggedIn()) { liff.login(); return; }
         const p = await liff.getProfile();
-        setProfile({ displayName: p.displayName, pictureUrl: p.pictureUrl });
+        setProfile({ displayName: p.displayName, pictureUrl: p.pictureUrl ?? '' });
         setLiffReady(true);
       } catch {
         // Fallback for non-LINE browser
