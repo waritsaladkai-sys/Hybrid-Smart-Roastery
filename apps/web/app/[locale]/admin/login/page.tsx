@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { createClient } from '../../../../lib/supabase';
 
 export default function AdminLoginPage() {
   const router = useRouter();
@@ -17,31 +18,44 @@ export default function AdminLoginPage() {
     setError('');
 
     try {
-      // Production: POST /api/v1/auth/login
-      const API = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000';
-      const res = await fetch(`${API}/api/v1/auth/login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
+      const supabase = createClient();
+
+      // Sign in with Supabase Auth
+      const { data, error: authError } = await supabase.auth.signInWithPassword({
+        email,
+        password,
       });
 
-      if (!res.ok) throw new Error('อีเมลหรือรหัสผ่านไม่ถูกต้อง');
-
-      const data = await res.json();
-      // Store JWT in httpOnly cookie via Next.js route (production)
-      // For dev: store in localStorage
-      localStorage.setItem('ecr_admin_token', data.accessToken);
-      localStorage.setItem('ecr_admin_user', JSON.stringify(data.user));
-      router.push('/th/admin');
-    } catch (err: any) {
-      // Dev fallback: allow demo credentials
-      if (email === 'admin@eightcoffee.co.th' && password === 'admin1234') {
-        localStorage.setItem('ecr_admin_token', 'dev-token-mock');
-        localStorage.setItem('ecr_admin_user', JSON.stringify({ name: 'Admin Eight Coffee', role: 'ADMIN', email }));
-        router.push('/th/admin');
+      if (authError) {
+        setError('อีเมลหรือรหัสผ่านไม่ถูกต้อง');
         return;
       }
-      setError(err.message ?? 'เกิดข้อผิดพลาด ลองใหม่อีกครั้ง');
+
+      if (!data.user) {
+        setError('เกิดข้อผิดพลาด ลองใหม่อีกครั้ง');
+        return;
+      }
+
+      // Check role — must be ADMIN or STAFF
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('id', data.user.id)
+        .single();
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const role = (profile as any)?.role;
+      if (!role || !['ADMIN', 'STAFF'].includes(role)) {
+        await supabase.auth.signOut();
+        setError('คุณไม่มีสิทธิ์เข้าถึงระบบ Admin');
+        return;
+      }
+
+      // Redirect to admin dashboard
+      router.push('/th/admin');
+      router.refresh();
+    } catch {
+      setError('เกิดข้อผิดพลาด ลองใหม่อีกครั้ง');
     } finally {
       setLoading(false);
     }
@@ -161,20 +175,16 @@ export default function AdminLoginPage() {
             {loading ? 'กำลังเข้าสู่ระบบ...' : 'เข้าสู่ระบบ →'}
           </button>
 
-          <a href="/th" style={{ display: 'block', textAlign: 'center', marginTop: '1.25rem', fontSize: '0.82rem', color: 'rgba(255,255,255,0.3)', transition: 'color 0.2s' }}
-            onMouseOver={e => (e.currentTarget.style.color = 'rgba(255,255,255,0.6)')}
-            onMouseOut={e => (e.currentTarget.style.color = 'rgba(255,255,255,0.3)')}
-          >
-            ← กลับหน้าร้านค้า
-          </a>
-        </form>
 
-        {/* Dev credentials hint */}
-        <div style={{ marginTop: '1.5rem', background: 'rgba(193,127,74,0.1)', border: '1px solid rgba(193,127,74,0.2)', borderRadius: 'var(--r-sm)', padding: '0.85rem 1rem', fontSize: '0.78rem', color: 'rgba(193,127,74,0.8)' }}>
-          <strong>Dev credentials:</strong><br />
-          admin@eightcoffee.co.th / admin1234
-        </div>
-      </div>
+        {/* Back to store */}
+        <a href="/th" style={{ display: 'block', textAlign: 'center', marginTop: '1.25rem', fontSize: '0.82rem', color: 'rgba(255,255,255,0.3)', transition: 'color 0.2s' }}
+          onMouseOver={e => (e.currentTarget.style.color = 'rgba(255,255,255,0.6)')}
+          onMouseOut={e => (e.currentTarget.style.color = 'rgba(255,255,255,0.3)')}
+        >
+          ← กลับหน้าร้านค้า
+        </a>
+      </form>
     </div>
+  </div>
   );
 }
