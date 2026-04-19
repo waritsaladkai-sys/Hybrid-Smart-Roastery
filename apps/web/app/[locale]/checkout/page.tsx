@@ -37,17 +37,14 @@ const PROVINCES = [
 
 // Generate PromptPay QR via qr-code API (uses promptpay format)
 // PromptPay ID for Eight Coffee: 0812345678 (replace with real number)
-function buildPromptPayQRUrl(amount: number): string {
-  // Using a public QR generation service for PromptPay format
-  // Format: promptpay://promptpay.io/{phone}/{amount}
-  const phone = '0812345678'; // Eight Coffee PromptPay number
-  const amountStr = amount.toFixed(2);
-  // Encode as PromptPay EMVCo format via promptpay API
-  const payload = `00020101021129370016A000000677010111011300668${phone}53037645802TH5920Eight Coffee Roasters6007Bangkok630`;
-  // Use QR Server API which supports arbitrary data
-  const data = encodeURIComponent(`https://promptpay.io/${phone}/${amountStr}`);
-  return `https://api.qrserver.com/v1/create-qr-code/?data=${data}&size=240x240&margin=8&color=1C1814`;
-}
+// KBank Account Info (Eight Coffee Roasters)
+const BANK_INFO = {
+  bankName: 'ธนาคารกสิกรไทย (KBank)',
+  bankColor: '#138f2d',
+  accountNumber: '106-2-82794-3',
+  accountName: 'นายวริทธิ์ ปรินายวนิชย์',
+  logo: 'K',
+};
 
 export default function CheckoutPage({ params: paramsPromise }: { params: Promise<{ locale: string }> }) {
   const params = use(paramsPromise);
@@ -264,30 +261,37 @@ export default function CheckoutPage({ params: paramsPromise }: { params: Promis
                   ใช้แอปธนาคารหรือ Mobile Banking สแกน QR ด้านล่าง
                 </p>
 
-                {/* PromptPay QR Code */}
-                <div style={{ display: 'inline-block', background: '#fff', border: '2px solid #e8e2da', borderRadius: '1.5rem', padding: '1.5rem', marginBottom: '1.5rem', boxShadow: '0 4px 24px rgba(0,0,0,0.08)' }}>
-                  {/* PromptPay Header */}
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', marginBottom: '1rem' }}>
-                    <span style={{ fontSize: '1.2rem' }}>🏦</span>
-                    <span style={{ fontSize: '0.85rem', fontWeight: 600, color: '#1c1814' }}>PromptPay QR</span>
+                {/* Thai QR Payment — KBank */}
+                <div style={{ display: 'inline-block', background: '#fff', border: '2px solid #e8e2da', borderRadius: '1.5rem', padding: '1.5rem', marginBottom: '1.5rem', boxShadow: '0 4px 24px rgba(0,0,0,0.08)', minWidth: '280px' }}>
+                  
+                  {/* KBank Header */}
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.75rem', marginBottom: '1rem', padding: '0.75rem', background: BANK_INFO.bankColor, borderRadius: '0.75rem' }}>
+                    <div style={{ width: 32, height: 32, borderRadius: '50%', background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, color: BANK_INFO.bankColor, fontSize: '1rem' }}>{BANK_INFO.logo}</div>
+                    <div style={{ textAlign: 'left' }}>
+                      <div style={{ color: '#fff', fontWeight: 700, fontSize: '0.9rem' }}>Thai QR Payment</div>
+                      <div style={{ color: 'rgba(255,255,255,0.8)', fontSize: '0.72rem' }}>{BANK_INFO.bankName}</div>
+                    </div>
                   </div>
 
-                  {/* Real QR using promptpay.io via qrserver API */}
+                  {/* Static PromptPay QR Image */}
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
-                    src={buildPromptPayQRUrl(grandTotal)}
-                    alt={`PromptPay QR ฿${grandTotal}`}
-                    width={240}
-                    height={240}
-                    style={{ display: 'block', borderRadius: '0.5rem' }}
+                    src="/qr-kbank.png"
+                    alt="Thai QR Payment - กสิกรไทย"
+                    width={220}
+                    height={220}
+                    style={{ display: 'block', margin: '0 auto', borderRadius: '0.5rem' }}
                   />
 
-                  <div style={{ marginTop: '1rem', textAlign: 'center' }}>
+                  {/* Amount + Account */}
+                  <div style={{ marginTop: '1rem', textAlign: 'center', borderTop: '1px solid #eee9e3', paddingTop: '1rem' }}>
                     <div style={{ fontFamily: 'var(--font-serif)', fontSize: '2rem', fontWeight: 700, color: '#1c1814' }}>
                       ฿{grandTotal.toLocaleString()}
                     </div>
-                    <div style={{ fontSize: '0.78rem', color: '#6b6560', marginTop: '0.25rem' }}>Eight Coffee Roasters</div>
-                    <div style={{ fontSize: '0.75rem', color: '#9b8f87', fontFamily: 'monospace', marginTop: '0.25rem' }}>081-234-5678</div>
+                    <div style={{ fontSize: '0.85rem', fontWeight: 600, color: '#1c1814', marginTop: '0.35rem' }}>{BANK_INFO.accountName}</div>
+                    <div style={{ fontSize: '0.78rem', color: '#6b6560', fontFamily: 'monospace', letterSpacing: '0.05em' }}>
+                      บัญชี {BANK_INFO.accountNumber}
+                    </div>
                   </div>
                 </div>
 
@@ -308,15 +312,23 @@ export default function CheckoutPage({ params: paramsPromise }: { params: Promis
                   </button>
                 </div>
 
-                <div style={{ background: 'var(--bg)', borderRadius: 'var(--r-sm)', padding: '1rem 1.5rem', fontSize: '0.82rem', color: 'var(--ink-500)', textAlign: 'left' }}>
-                  <strong style={{ color: 'var(--ink-700)' }}>วิธีชำระ:</strong><br />
-                  1. เปิดแอปธนาคาร เลือก &quot;สแกน QR&quot; หรือ &quot;PromptPay&quot;<br />
-                  2. สแกน QR Code ด้านบน<br />
-                  3. ยืนยันจำนวนเงิน <strong>฿{grandTotal.toLocaleString()}</strong><br />
-                  4. กด &quot;ชำระเงินแล้ว&quot; เพื่อดำเนินการต่อ<br />
-                  <span style={{ marginTop: '0.5rem', display: 'block', color: '#9b8f87' }}>
-                    * ทีมงานจะตรวจสอบการชำระเงินและแจ้งผ่าน LINE OA
-                  </span>
+                {/* Bank Transfer Alternative */}
+                <div style={{ background: '#f9f6f2', border: '1px solid #eee9e3', borderRadius: 'var(--r-sm)', padding: '1.25rem 1.5rem', fontSize: '0.85rem', textAlign: 'left', marginBottom: '1rem' }}>
+                  <div style={{ fontWeight: 700, color: '#1c1814', marginBottom: '0.75rem' }}>📋 วิธีชำระเงิน</div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', color: '#3a3530' }}>
+                    <div>1️⃣ สแกน QR ด้านบนผ่าน Mobile Banking ทุกธนาคาร</div>
+                    <div style={{ paddingLeft: '1.5rem', color: '#6b6560', fontSize: '0.8rem' }}>หรือโอนโดยตรงมาที่:</div>
+                    <div style={{ background: '#fff', border: '1px solid #eee9e3', borderRadius: '0.5rem', padding: '0.75rem 1rem', fontSize: '0.85rem' }}>
+                      <div style={{ fontWeight: 600, color: BANK_INFO.bankColor }}>{BANK_INFO.bankName}</div>
+                      <div style={{ fontFamily: 'monospace', fontSize: '1rem', letterSpacing: '0.08em', margin: '0.25rem 0' }}>{BANK_INFO.accountNumber}</div>
+                      <div style={{ color: '#6b6560' }}>{BANK_INFO.accountName}</div>
+                    </div>
+                    <div>2️⃣ ยืนยันจำนวนเงิน <strong style={{ color: '#C17F4A' }}>฿{grandTotal.toLocaleString()}</strong></div>
+                    <div>3️⃣ กด <strong>&quot;ชำระเงินแล้ว&quot;</strong> เพื่อยืนยันออเดอร์</div>
+                  </div>
+                  <div style={{ marginTop: '0.75rem', paddingTop: '0.75rem', borderTop: '1px solid #eee9e3', fontSize: '0.78rem', color: '#9b8f87' }}>
+                    ⓘ ทีมงานจะตรวจสอบยอดเงินและยืนยันออเดอร์ภายใน 1–2 ชั่วโมงในวันทำการ
+                  </div>
                 </div>
               </div>
 
