@@ -47,12 +47,52 @@ const BANK_INFO = {
   logo: 'K',
 };
 
-// Dynamic PromptPay QR — amount baked into QR automatically
-// When scanned: shows name + amount pre-filled, no typo risk
+// ── Thai PromptPay EMVCo QR Generator ──────────────────────────────────────
+// Generates the standard TLV payload that ALL Thai banking apps can scan.
+// Format: EMVCo QRPS v1.1 (Thai QR Payment standard)
+function tlv(tag: string, value: string): string {
+  return `${tag}${String(value.length).padStart(2, '0')}${value}`;
+}
+
+function crc16(str: string): string {
+  let crc = 0xffff;
+  for (let i = 0; i < str.length; i++) {
+    crc ^= str.charCodeAt(i) << 8;
+    for (let j = 0; j < 8; j++) {
+      crc = (crc & 0x8000) ? ((crc << 1) ^ 0x1021) : (crc << 1);
+    }
+    crc &= 0xffff;
+  }
+  return crc.toString(16).toUpperCase().padStart(4, '0');
+}
+
+function buildPromptPayPayload(phone: string, amount: number): string {
+  // Normalize phone: 0804790489 → 0066804790489
+  const normalized = '0066' + phone.replace(/^0/, '').replace(/[-\s]/g, '');
+
+  // Tag 29: Merchant Account Info for PromptPay (phone proxy)
+  const merchantInfo = tlv('00', 'A000000677010111') + tlv('01', normalized);
+
+  // Build full payload (without CRC)
+  const body = [
+    tlv('00', '01'),                  // Payload Format Indicator
+    tlv('01', '12'),                  // Dynamic (12 = one-time, 11 = reusable)
+    tlv('29', merchantInfo),          // PromptPay Merchant Account
+    tlv('53', '764'),                 // Currency: THB
+    tlv('54', amount.toFixed(2)),     // Transaction Amount
+    tlv('58', 'TH'),                  // Country Code
+    tlv('59', 'Eight Coffee'),        // Merchant Name (max 25 chars)
+    tlv('60', 'Bangkok'),             // Merchant City
+    '6304',                           // CRC placeholder (tag + 2-char length + 4-char value)
+  ].join('');
+
+  return body + crc16(body);
+}
+
 function buildPromptPayQRUrl(amount: number): string {
-  const amountStr = amount.toFixed(2);
-  const data = encodeURIComponent(`https://promptpay.io/${BANK_INFO.promptPayPhone}/${amountStr}`);
-  return `https://api.qrserver.com/v1/create-qr-code/?data=${data}&size=280x280&margin=10&color=000000&bgcolor=ffffff`;
+  const payload = buildPromptPayPayload(BANK_INFO.promptPayPhone, amount);
+  const data = encodeURIComponent(payload);
+  return `https://api.qrserver.com/v1/create-qr-code/?data=${data}&size=280x280&margin=10&color=000000&bgcolor=ffffff&ecc=M`;
 }
 
 export default function CheckoutPage({ params: paramsPromise }: { params: Promise<{ locale: string }> }) {
