@@ -4,6 +4,8 @@ import { createContext, useContext, useReducer, useEffect, ReactNode } from 'rea
 
 export interface CartItem {
   id: string;
+  productId?: string;
+  variantId?: string;
   slug: string;
   nameTh: string;
   origin: string;
