@@ -24,23 +24,31 @@ export async function createServerSupabaseClient() {
             cookieStore.set(name, value, options)
           );
         } catch {
-          // Server Component — ignore (middleware handles refresh)
+          // Ignore in Server Components (middleware handles session refresh)
         }
       },
     },
   });
 }
 
-// ── Admin client (service role — server-side ONLY, never expose to browser) ──
-// Uses dynamic import with 'any' to bypass type conflict between @supabase/ssr and @supabase/supabase-js
+// ── Admin client (service role — server only, never expose to browser) ──
+// Returns `any` to avoid type conflicts between @supabase/ssr and @supabase/supabase-js
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function createAdminClient(): any {
-  // Dynamic require to avoid module resolution conflict
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const { createClient: _createClient } = require('@supabase/supabase-js');
-  return _createClient(
+  // Use @supabase/ssr's createServerClient with service role key and no cookies
+  // This acts as a service-role (admin) client for server-side operations
+  return createServerClient<Database>(
     SUPABASE_URL,
     process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    { auth: { autoRefreshToken: false, persistSession: false } }
+    {
+      cookies: {
+        getAll() { return []; },
+        setAll() { /* No-op for admin client */ },
+      },
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false,
+      },
+    }
   );
 }

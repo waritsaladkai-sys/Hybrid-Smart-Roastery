@@ -1,11 +1,11 @@
 import { createServerClient } from '@supabase/ssr';
-import { createClient } from '@supabase/supabase-js';
 import { NextResponse, type NextRequest } from 'next/server';
 import type { Database } from './lib/database.types';
 
 export async function middleware(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request });
 
+  // Session client (anon key)
   const supabase = createServerClient<Database>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -23,7 +23,7 @@ export async function middleware(request: NextRequest) {
     }
   );
 
-  // Refresh session token
+  // Refresh session token (required for SSR)
   const { data: { user } } = await supabase.auth.getUser();
   const pathname = request.nextUrl.pathname;
 
@@ -35,20 +35,28 @@ export async function middleware(request: NextRequest) {
       return NextResponse.redirect(new URL(`/${locale}/admin/login`, request.url));
     }
 
-    // Service role client to bypass RLS for role lookup
-    const adminClient = createClient<Database>(
+    // Service role client (no require — use @supabase/ssr with service key)
+    const adminClient = createServerClient<Database>(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.SUPABASE_SERVICE_ROLE_KEY!,
-      { auth: { autoRefreshToken: false, persistSession: false } }
+      {
+        cookies: {
+          getAll() { return []; },
+          setAll() { /* no-op */ },
+        },
+        auth: { autoRefreshToken: false, persistSession: false },
+      }
     );
-    const { data: profile } = await adminClient
+
+    const { data: profileData } = await adminClient
       .from('profiles')
       .select('role')
       .eq('id', user.id)
       .single();
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    if (!profile || !['ADMIN', 'STAFF'].includes((profile as any).role)) {
+    const role = (profileData as any)?.role;
+    if (!role || !['ADMIN', 'STAFF'].includes(role)) {
       const locale = pathname.startsWith('/en') ? 'en' : 'th';
       return NextResponse.redirect(
         new URL(`/${locale}/admin/login?error=unauthorized`, request.url)
