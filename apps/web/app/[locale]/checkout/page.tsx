@@ -37,14 +37,23 @@ const PROVINCES = [
 
 // Generate PromptPay QR via qr-code API (uses promptpay format)
 // PromptPay ID for Eight Coffee: 0812345678 (replace with real number)
-// KBank Account Info (Eight Coffee Roasters)
+// KBank + PromptPay Account Info
 const BANK_INFO = {
   bankName: 'ธนาคารกสิกรไทย (KBank)',
   bankColor: '#138f2d',
   accountNumber: '106-2-82794-3',
   accountName: 'นายวริทธิ์ ปรินายวนิชย์',
+  promptPayPhone: '0804790489',
   logo: 'K',
 };
+
+// Dynamic PromptPay QR — amount baked into QR automatically
+// When scanned: shows name + amount pre-filled, no typo risk
+function buildPromptPayQRUrl(amount: number): string {
+  const amountStr = amount.toFixed(2);
+  const data = encodeURIComponent(`https://promptpay.io/${BANK_INFO.promptPayPhone}/${amountStr}`);
+  return `https://api.qrserver.com/v1/create-qr-code/?data=${data}&size=280x280&margin=10&color=000000&bgcolor=ffffff`;
+}
 
 export default function CheckoutPage({ params: paramsPromise }: { params: Promise<{ locale: string }> }) {
   const params = use(paramsPromise);
@@ -263,34 +272,40 @@ export default function CheckoutPage({ params: paramsPromise }: { params: Promis
 
                 {/* Thai QR Payment — KBank */}
                 <div style={{ display: 'inline-block', background: '#fff', border: '2px solid #e8e2da', borderRadius: '1.5rem', padding: '1.5rem', marginBottom: '1.5rem', boxShadow: '0 4px 24px rgba(0,0,0,0.08)', minWidth: '280px' }}>
-                  
+
                   {/* KBank Header */}
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.75rem', marginBottom: '1rem', padding: '0.75rem', background: BANK_INFO.bankColor, borderRadius: '0.75rem' }}>
                     <div style={{ width: 32, height: 32, borderRadius: '50%', background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, color: BANK_INFO.bankColor, fontSize: '1rem' }}>{BANK_INFO.logo}</div>
                     <div style={{ textAlign: 'left' }}>
-                      <div style={{ color: '#fff', fontWeight: 700, fontSize: '0.9rem' }}>Thai QR Payment</div>
-                      <div style={{ color: 'rgba(255,255,255,0.8)', fontSize: '0.72rem' }}>{BANK_INFO.bankName}</div>
+                      <div style={{ color: '#fff', fontWeight: 700, fontSize: '0.9rem' }}>Thai QR Payment · PromptPay</div>
+                      <div style={{ color: 'rgba(255,255,255,0.85)', fontSize: '0.72rem' }}>{BANK_INFO.bankName}</div>
                     </div>
                   </div>
 
-                  {/* Static PromptPay QR Image */}
+                  {/* Dynamic PromptPay QR — amount pre-filled */}
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
-                    src="/qr-kbank.png"
-                    alt="Thai QR Payment - กสิกรไทย"
-                    width={220}
-                    height={220}
+                    src={buildPromptPayQRUrl(grandTotal)}
+                    alt={`PromptPay QR ฿${grandTotal} - ${BANK_INFO.accountName}`}
+                    width={240}
+                    height={240}
                     style={{ display: 'block', margin: '0 auto', borderRadius: '0.5rem' }}
                   />
 
                   {/* Amount + Account */}
                   <div style={{ marginTop: '1rem', textAlign: 'center', borderTop: '1px solid #eee9e3', paddingTop: '1rem' }}>
-                    <div style={{ fontFamily: 'var(--font-serif)', fontSize: '2rem', fontWeight: 700, color: '#1c1814' }}>
+                    <div style={{ fontFamily: 'var(--font-serif)', fontSize: '2.25rem', fontWeight: 700, color: '#1c1814' }}>
                       ฿{grandTotal.toLocaleString()}
                     </div>
+                    <div style={{ fontSize: '0.82rem', color: '#22c55e', fontWeight: 600, marginTop: '0.2rem' }}>
+                      ✓ ยอดเงินใส่ใน QR อัตโนมัติ
+                    </div>
                     <div style={{ fontSize: '0.85rem', fontWeight: 600, color: '#1c1814', marginTop: '0.35rem' }}>{BANK_INFO.accountName}</div>
-                    <div style={{ fontSize: '0.78rem', color: '#6b6560', fontFamily: 'monospace', letterSpacing: '0.05em' }}>
-                      บัญชี {BANK_INFO.accountNumber}
+                    <div style={{ fontSize: '0.75rem', color: '#6b6560', marginTop: '0.15rem' }}>
+                      {BANK_INFO.bankName} · {BANK_INFO.accountNumber}
+                    </div>
+                    <div style={{ fontSize: '0.75rem', color: '#9b8f87', fontFamily: 'monospace', marginTop: '0.1rem' }}>
+                      PromptPay: {BANK_INFO.promptPayPhone.replace(/(\d{3})(\d{3})(\d{4})/, '$1-$2-$3')}
                     </div>
                   </div>
                 </div>
