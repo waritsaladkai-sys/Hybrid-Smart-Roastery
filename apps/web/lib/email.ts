@@ -1,6 +1,7 @@
 import { Resend } from 'resend';
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+// Initialize with dummy if missing during build, to prevent crash
+const resend = new Resend(process.env.RESEND_API_KEY || 're_dummy_key');
 const FROM = 'Eight Coffee Roasters <noreply@eightcoffee.co.th>';
 const ADMIN_EMAIL = 'admin@eightcoffee.co.th';
 
