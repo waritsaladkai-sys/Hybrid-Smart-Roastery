@@ -1,58 +1,36 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
 
-const PRODUCTS = [
-  {
-    slug: 'ethiopia-yirgacheffe-natural',
-    origin: 'Ethiopia · Yirgacheffe', process: 'Natural', roast: 'Light',
-    nameTh: 'เอธิโอเปีย ยิร์กาเชฟเฟ เนเชอรัล',
-    tags: ['ดอกไม้', 'บลูเบอร์รี่', 'น้ำผึ้ง'], price: 520, weight: 250, isNew: true,
-    sweet: 4.0, sour: 3.5, body: 2.0, aroma: 5.0, bitter: 1.0,
-    mood: ['fruity', 'floral', 'light'], brew: ['Pour Over', 'AeroPress'],
-  },
-  {
-    slug: 'colombia-huila-washed',
-    origin: 'Colombia · Huila', process: 'Washed', roast: 'Medium',
-    nameTh: 'โคลอมเบีย อูอิลา วอช',
-    tags: ['ช็อกโกแลต', 'คาราเมล', 'เฮเซลนัต'], price: 450, weight: 250, isNew: false,
-    sweet: 4.0, sour: 2.0, body: 4.5, aroma: 3.5, bitter: 2.5,
-    mood: ['chocolate', 'balanced', 'nutty'], brew: ['Espresso', 'Moka Pot', 'Pour Over'],
-  },
-  {
-    slug: 'thailand-doi-chang-honey',
-    origin: 'Thailand · Doi Chang', process: 'Honey', roast: 'Medium Light',
-    nameTh: 'ไทย ดอยช้าง ฮันนี่',
-    tags: ['น้ำผึ้ง', 'พีช', 'อ้อย'], price: 380, weight: 250, isNew: false,
-    sweet: 4.5, sour: 1.5, body: 3.0, aroma: 3.5, bitter: 1.5,
-    mood: ['sweet', 'mild', 'fruity'], brew: ['Pour Over', 'Cold Brew', 'Drip'],
-  },
-  {
-    slug: 'kenya-aa-washed',
-    origin: 'Kenya · Nyeri', process: 'Washed', roast: 'Light',
-    nameTh: 'เคนยา AA วอช',
-    tags: ['แบล็กเคอร์แรนท์', 'มะนาว', 'ดอกไม้'], price: 580, weight: 250, isNew: false,
-    sweet: 3.0, sour: 5.0, body: 2.5, aroma: 4.5, bitter: 1.0,
-    mood: ['fruity', 'bright', 'complex'], brew: ['Pour Over', 'AeroPress'],
-  },
-  {
-    slug: 'brazil-cerrado-natural',
-    origin: 'Brazil · Cerrado', process: 'Natural', roast: 'Medium Dark',
-    nameTh: 'บราซิล เซอร์ราโด เนเชอรัล',
-    tags: ['ช็อกโกแลต', 'ถั่ว', 'คาราเมล'], price: 350, weight: 250, isNew: false,
-    sweet: 3.5, sour: 1.0, body: 5.0, aroma: 3.0, bitter: 3.5,
-    mood: ['chocolate', 'heavy', 'espresso'], brew: ['Espresso', 'Latte', 'Moka Pot'],
-  },
-];
+// DB product shape
+type DbProduct = {
+  id: string;
+  slug: string;
+  name_th: string;
+  name_en: string;
+  origin: string;
+  process: string;
+  roast_level: string;
+  flavor_notes: string[];
+  flavor_sweet: number;
+  flavor_sour: number;
+  flavor_body: number;
+  flavor_aroma: number;
+  flavor_bitter: number;
+  badge: string | null;
+  image_url: string | null;
+  in_stock: boolean;
+  product_variants: { weight_gram: number; retail_price: number }[];
+};
 
 const PROCESS_MAP: Record<string, string> = {
   Natural: 'เนเชอรัล', Washed: 'วอช', Honey: 'ฮันนี่', Anaerobic: 'แอนแอโรบิก',
 };
 
 // Simple SVG radar chart
-function FlavorRadar({ product }: { product: typeof PRODUCTS[0] }) {
+function FlavorRadar({ product }: { product: DbProduct }) {
   const cx = 80, cy = 80, r = 60;
   const labels = ['หวาน', 'เปรี้ยว', 'บอดี้', 'กลิ่น', 'ขม'];
-  const values = [product.sweet, product.sour, product.body, product.aroma, product.bitter];
+  const values = [product.flavor_sweet, product.flavor_sour, product.flavor_body, product.flavor_aroma, product.flavor_bitter];
   const n = labels.length;
 
   const angle = (i: number) => (Math.PI * 2 * i) / n - Math.PI / 2;
@@ -110,10 +88,10 @@ const QUIZ_STEPS = [
   },
 ];
 
-function BeanSelector() {
+function BeanSelector({ products }: { products: DbProduct[] }) {
   const [step, setStep] = useState(0);
   const [answers, setAnswers] = useState<string[]>([]);
-  const [result, setResult] = useState<typeof PRODUCTS[0] | null>(null);
+  const [result, setResult] = useState<DbProduct | null>(null);
 
   const handleAnswer = (val: string) => {
     const newAnswers = [...answers, val];
@@ -121,40 +99,59 @@ function BeanSelector() {
       setAnswers(newAnswers);
       setStep(step + 1);
     } else {
-      // Score products
-      const [mood, brew] = newAnswers;
-      const scored = PRODUCTS.map(p => ({
+      // Score products based on flavor notes and process
+      const [moodVal, brewVal] = newAnswers;
+      const MOOD_MAP: Record<string, string[]> = {
+        fruity: ['ดอกไม้','บลูเบอร์รี่','พีช','แบล็กเคอร์แรนท์','มะนาว','มะม่วง'],
+        chocolate: ['ช็อกโกแลต','คาราเมล','ถั่ว','เฮเซลนัต'],
+        sweet: ['น้ำผึ้ง','อ้อย','พีช','เชอร์รี่'],
+        mild: ['น้ำผึ้ง','มะพร้าว','อ้อย'],
+      };
+      const BREW_PROCESS: Record<string, string[]> = {
+        'Pour Over': ['Natural','Washed','Honey'],
+        'AeroPress': ['Natural','Washed'],
+        'Espresso': ['Washed','Natural'],
+        'Cold Brew': ['Natural','Honey'],
+      };
+      const moodTags = MOOD_MAP[moodVal] ?? [];
+      const brewProcs = BREW_PROCESS[brewVal] ?? [];
+      const scored = products.map(p => ({
         product: p,
-        score: (p.mood.includes(mood) ? 3 : 0) + (p.brew.includes(brew) ? 2 : 0),
+        score:
+          (p.flavor_notes?.some(t => moodTags.includes(t)) ? 3 : 0) +
+          (brewProcs.includes(p.process) ? 2 : 0),
       })).sort((a, b) => b.score - a.score);
-      setResult(scored[0].product);
+      setResult(scored[0]?.product ?? null);
     }
   };
 
   const reset = () => { setStep(0); setAnswers([]); setResult(null); };
 
-  if (result) return (
-    <div style={{ background: '#fff', border: '1.5px solid #eee9e3', borderRadius: '1.5rem', padding: '2rem', textAlign: 'center' }}>
-      <div style={{ fontSize: '0.75rem', color: '#C17F4A', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '0.5rem' }}>
-        เหมาะกับคุณที่สุด
+  if (result) {
+    const price = result.product_variants?.[0]?.retail_price ?? 0;
+    return (
+      <div style={{ background: '#fff', border: '1.5px solid #eee9e3', borderRadius: '1.5rem', padding: '2rem', textAlign: 'center' }}>
+        <div style={{ fontSize: '0.75rem', color: '#C17F4A', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '0.5rem' }}>
+          เหมาะกับคุณที่สุด
+        </div>
+        <h3 style={{ fontFamily: 'var(--font-serif)', fontSize: '1.5rem', marginBottom: '0.75rem' }}>
+          {result.name_th}
+        </h3>
+        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '1rem' }}>
+          <FlavorRadar product={result} />
+        </div>
+        <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center', flexWrap: 'wrap', marginBottom: '1.25rem' }}>
+          {(result.flavor_notes || []).map(t => (
+            <span key={t} style={{ padding: '0.3rem 0.8rem', background: '#f5ebe0', borderRadius: '100px', fontSize: '0.8rem', color: '#8a5832' }}>{t}</span>
+          ))}
+        </div>
+        <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'center' }}>
+          <a href={`/th/products/${result.slug}`} className="btn btn-dark">สั่งซื้อ ฿{price} →</a>
+          <button onClick={reset} className="btn btn-outline">ลองใหม่</button>
+        </div>
       </div>
-      <h3 style={{ fontFamily: 'var(--font-serif)', fontSize: '1.5rem', marginBottom: '0.75rem' }}>
-        {result.nameTh}
-      </h3>
-      <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '1rem' }}>
-        <FlavorRadar product={result} />
-      </div>
-      <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center', flexWrap: 'wrap', marginBottom: '1.25rem' }}>
-        {result.tags.map(t => (
-          <span key={t} style={{ padding: '0.3rem 0.8rem', background: '#f5ebe0', borderRadius: '100px', fontSize: '0.8rem', color: '#8a5832' }}>{t}</span>
-        ))}
-      </div>
-      <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'center' }}>
-        <a href={`/th/products/${result.slug}`} className="btn btn-dark">สั่งซื้อ ฿{result.price} →</a>
-        <button onClick={reset} className="btn btn-outline">ลองใหม่</button>
-      </div>
-    </div>
-  );
+    );
+  }
 
   const current = QUIZ_STEPS[step];
   return (
@@ -182,11 +179,18 @@ function BeanSelector() {
 }
 
 // B2B cost calculator
-function CostCalculator() {
+function CostCalculator({ products }: { products: DbProduct[] }) {
   const [kg, setKg] = useState(5);
-  const [product, setProduct] = useState(PRODUCTS[1]);
+  const [productIdx, setProductIdx] = useState(0);
+  const product = products[productIdx];
 
-  const pricePerKg = product.price * 4 * 0.78; // 250g price → per kg wholesale
+  // Fallback to 0 if products not loaded yet
+  if (!product) return <div style={{ padding: '2rem', color: 'var(--ink-500)' }}>กำลังโหลด...</div>;
+
+  const basePrice = product.product_variants?.[0]?.retail_price ?? 0;
+  const baseWeight = product.product_variants?.[0]?.weight_gram ?? 250;
+  const pricePerGram = basePrice / baseWeight;
+  const pricePerKg = pricePerGram * 1000 * 0.78; // wholesale ~22% off
   const total = kg * pricePerKg;
   const shipping = kg >= 20 ? 0 : kg >= 10 ? 150 : 250;
   const grandTotal = total + shipping;
@@ -199,9 +203,9 @@ function CostCalculator() {
 
       <div style={{ marginBottom: '1rem' }}>
         <label style={{ fontSize: '0.8rem', color: '#6b6560', display: 'block', marginBottom: '0.4rem' }}>เลือกเมล็ดกาแฟ</label>
-        <select value={product.slug} onChange={e => setProduct(PRODUCTS.find(p => p.slug === e.target.value) ?? PRODUCTS[0])}
+        <select value={productIdx} onChange={e => setProductIdx(Number(e.target.value))}
           style={{ width: '100%', padding: '0.7rem', border: '1.5px solid #eee9e3', borderRadius: '0.5rem', fontFamily: 'Sarabun, inherit', fontSize: '0.9rem', color: '#3a3530', background: '#fafaf9' }}>
-          {PRODUCTS.map(p => <option key={p.slug} value={p.slug}>{p.nameTh}</option>)}
+          {products.map((p, i) => <option key={p.slug} value={i}>{p.name_th}</option>)}
         </select>
       </div>
 
@@ -253,7 +257,20 @@ const MARQUEE_ITEMS = [
 export default function HomePage() {
   const navRef = useRef<HTMLElement>(null);
   const progressRef = useRef<HTMLDivElement>(null);
-  const [selectedProduct, setSelectedProduct] = useState(PRODUCTS[0]);
+  const [products, setProducts] = useState<DbProduct[]>([]);
+  const [selectedProduct, setSelectedProduct] = useState<DbProduct | null>(null);
+
+  useEffect(() => {
+    // Fetch products from Supabase via API
+    fetch('/api/products')
+      .then(res => res.json())
+      .then(data => {
+        if (data.products?.length > 0) {
+          setProducts(data.products);
+          setSelectedProduct(data.products[0]);
+        }
+      });
+  }, []);
 
   useEffect(() => {
     const onScroll = () => {
@@ -372,27 +389,41 @@ export default function HomePage() {
         {/* Flavor Explorer */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 300px', gap: '2rem', marginBottom: '3rem', alignItems: 'start' }}>
           <div className="products-grid" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))' }}>
-            {PRODUCTS.map((p) => (
+            {products.length === 0 && (
+              <div style={{ padding: '2rem', color: 'var(--ink-500)' }}>กำลังโหลดสินค้า...</div>
+            )}
+            {products.map((p) => (
               <a key={p.slug} href={`/th/products/${p.slug}`} className="product-card"
                 onClick={(e) => { e.preventDefault(); setSelectedProduct(p); }}
-                style={{ cursor: 'pointer', outline: selectedProduct.slug === p.slug ? '2px solid #C17F4A' : 'none' }}>
+                style={{ cursor: 'pointer', outline: selectedProduct?.slug === p.slug ? '2px solid #C17F4A' : 'none' }}>
                 <div className="product-img">
-                  <span className="product-img-emoji">☕</span>
+                  {p.image_url ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={p.image_url} alt={p.name_th} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  ) : (
+                    <span className="product-img-emoji">☕</span>
+                  )}
                   <span className="product-origin-badge">{p.origin}</span>
-                  {p.isNew && <span className="product-new-badge">New</span>}
+                  {p.badge && <span className="product-new-badge">{p.badge}</span>}
                 </div>
                 <div className="product-body">
-                  <div className="product-process">{PROCESS_MAP[p.process] ?? p.process} · {p.roast}</div>
-                  <h3 className="product-name">{p.nameTh}</h3>
+                  <div className="product-process">{PROCESS_MAP[p.process] ?? p.process} · {p.roast_level}</div>
+                  <h3 className="product-name">{p.name_th}</h3>
                   <div className="product-flavor-tags">
-                    {p.tags.slice(0, 2).map((tag) => (
+                    {(p.flavor_notes || []).slice(0, 2).map((tag) => (
                       <span key={tag} className="flavor-tag">{tag}</span>
                     ))}
                   </div>
                   <div className="product-footer-row">
                     <div className="product-price-block">
-                      <div className="product-price">฿{p.price}</div>
-                      <div className="product-weight">{p.weight}g</div>
+                      {p.product_variants?.length > 0 ? (
+                        <>
+                          <div className="product-price">฿{p.product_variants[0].retail_price}</div>
+                          <div className="product-weight">{p.product_variants[0].weight_gram}g</div>
+                        </>
+                      ) : (
+                        <div className="product-price" style={{ fontSize: '0.8rem' }}>ติดต่อสั่ง</div>
+                      )}
                     </div>
                     <a href={`/th/products/${p.slug}`} className="btn btn-outline btn-sm">สั่งซื้อ</a>
                   </div>
@@ -403,26 +434,29 @@ export default function HomePage() {
 
           {/* Sticky Flavor Panel */}
           <div style={{ position: 'sticky', top: '5rem', background: '#fff', borderRadius: '1.5rem', border: '1.5px solid #eee9e3', padding: '1.5rem', textAlign: 'center' }}>
-            <div style={{ fontSize: '0.72rem', color: '#C17F4A', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '0.5rem' }}>
-              Flavor Profile
-            </div>
-            <div style={{ fontFamily: 'var(--font-serif)', fontSize: '1rem', fontWeight: 600, marginBottom: '1rem', color: '#1c1814' }}>
-              {selectedProduct.nameTh}
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '0.75rem' }}>
-              <FlavorRadar product={selectedProduct} />
-            </div>
-            <div style={{ display: 'flex', gap: '0.4rem', justifyContent: 'center', flexWrap: 'wrap', marginBottom: '1rem' }}>
-              {selectedProduct.tags.map(t => (
-                <span key={t} style={{ padding: '0.25rem 0.6rem', background: '#f5ebe0', borderRadius: '100px', fontSize: '0.75rem', color: '#8a5832' }}>{t}</span>
-              ))}
-            </div>
-            <div style={{ fontSize: '0.78rem', color: '#6b6560', marginBottom: '1rem' }}>
-              แนะนำ: {selectedProduct.brew.join(' · ')}
-            </div>
-            <a href={`/th/products/${selectedProduct.slug}`} className="btn btn-dark" style={{ width: '100%', justifyContent: 'center' }}>
-              สั่งซื้อ ฿{selectedProduct.price} →
-            </a>
+            {selectedProduct ? (
+              <>
+                <div style={{ fontSize: '0.72rem', color: '#C17F4A', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '0.5rem' }}>
+                  Flavor Profile
+                </div>
+                <div style={{ fontFamily: 'var(--font-serif)', fontSize: '1rem', fontWeight: 600, marginBottom: '1rem', color: '#1c1814' }}>
+                  {selectedProduct.name_th}
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '0.75rem' }}>
+                  <FlavorRadar product={selectedProduct} />
+                </div>
+                <div style={{ display: 'flex', gap: '0.4rem', justifyContent: 'center', flexWrap: 'wrap', marginBottom: '1rem' }}>
+                  {(selectedProduct.flavor_notes || []).map(t => (
+                    <span key={t} style={{ padding: '0.25rem 0.6rem', background: '#f5ebe0', borderRadius: '100px', fontSize: '0.75rem', color: '#8a5832' }}>{t}</span>
+                  ))}
+                </div>
+                <a href={`/th/products/${selectedProduct.slug}`} className="btn btn-dark" style={{ width: '100%', justifyContent: 'center' }}>
+                  สั่งซื้อ ฿{selectedProduct.product_variants?.[0]?.retail_price ?? '-'} →
+                </a>
+              </>
+            ) : (
+              <div style={{ color: 'var(--ink-500)', fontSize: '0.85rem' }}>กรุณาเลือกสินค้า</div>
+            )}
           </div>
         </div>
       </section>
@@ -440,8 +474,8 @@ export default function HomePage() {
         </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem' }}>
-          <BeanSelector />
-          <CostCalculator />
+          <BeanSelector products={products} />
+          <CostCalculator products={products} />
         </div>
       </section>
 
