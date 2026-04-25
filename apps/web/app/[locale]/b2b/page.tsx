@@ -50,10 +50,23 @@ export default function B2BPage({ params: paramsPromise }: { params: Promise<{ l
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitting(true);
-    // Simulate sending (production: POST /api/b2b/inquiry)
-    await new Promise(r => setTimeout(r, 1000));
-    setSubmitted(true);
-    setSubmitting(false);
+    try {
+      const res = await fetch('/api/b2b/inquiry', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(form)
+      });
+      if (res.ok) {
+        setSubmitted(true);
+      } else {
+        alert('เกิดข้อผิดพลาด กรุณาลองใหม่อีกครั้ง');
+      }
+    } catch (err) {
+      console.error(err);
+      alert('เกิดข้อผิดพลาด กรุณาลองใหม่อีกครั้ง');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (

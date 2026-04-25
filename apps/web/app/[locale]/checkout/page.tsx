@@ -108,6 +108,8 @@ export default function CheckoutPage({ params: paramsPromise }: { params: Promis
   const [submitting, setSubmitting] = useState(false);
   const [orderId, setOrderId] = useState<string | null>(null);
   const [orderError, setOrderError] = useState('');
+  const [slipFile, setSlipFile] = useState<File | null>(null);
+  const [uploadingSlip, setUploadingSlip] = useState(false);
 
   const shipping = total >= 500 ? 0 : 50;
   const grandTotal = total + shipping;
@@ -168,9 +170,39 @@ export default function CheckoutPage({ params: paramsPromise }: { params: Promis
   };
 
   // Confirm payment (customer pressed "ชำระเงินแล้ว")
-  const handlePaymentConfirmed = () => {
-    clear();
-    setStep('success');
+  const handlePaymentConfirmed = async () => {
+    if (!orderId) {
+      // Fallback if order wasn't saved properly but we still want to clear cart
+      clear();
+      setStep('success');
+      return;
+    }
+
+    if (!slipFile) {
+      alert('กรุณาอัปโหลดภาพสลิปโอนเงินเพื่อยืนยัน');
+      return;
+    }
+
+    setUploadingSlip(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', slipFile);
+
+      const res = await fetch(`/api/orders/${orderId}/slip`, {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!res.ok) throw new Error('Slip upload failed');
+      
+      clear();
+      setStep('success');
+    } catch (err) {
+      console.error(err);
+      alert('เกิดข้อผิดพลาดในการอัปโหลดสลิป กรุณาลองใหม่อีกครั้ง');
+    } finally {
+      setUploadingSlip(false);
+    }
   };
 
   if (items.length === 0 && step !== 'success') {
@@ -356,14 +388,31 @@ export default function CheckoutPage({ params: paramsPromise }: { params: Promis
                   <span style={{ fontSize: '0.9rem', color: 'var(--ink-500)' }}>QR หมดอายุใน <strong style={{ color: countdown < 60 ? '#ef4444' : 'var(--ink-900)' }}>{mm}:{ss}</strong></span>
                 </div>
 
+                {/* Slip Upload */}
+                <div style={{ marginBottom: '2rem', textAlign: 'left', background: '#f9f6f2', padding: '1.25rem', borderRadius: '1rem', border: '1px solid #e8e2da' }}>
+                  <div style={{ fontWeight: 600, color: '#1c1814', marginBottom: '0.75rem' }}>แนบสลิปการโอนเงิน (จำเป็น) *</div>
+                  <input 
+                    type="file" 
+                    accept="image/*"
+                    onChange={(e) => setSlipFile(e.target.files?.[0] || null)}
+                    style={{ display: 'block', width: '100%', padding: '0.75rem', border: '1.5px dashed #C17F4A', borderRadius: '0.5rem', background: '#fff', fontSize: '0.85rem' }}
+                  />
+                  {slipFile && (
+                    <div style={{ marginTop: '0.5rem', fontSize: '0.8rem', color: '#166534' }}>
+                      ✓ เลือกไฟล์: {slipFile.name}
+                    </div>
+                  )}
+                </div>
+
                 <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center', marginBottom: '2rem' }}>
-                  <button className="btn btn-outline" onClick={() => setStep('address')}>← แก้ไขที่อยู่</button>
+                  <button className="btn btn-outline" onClick={() => setStep('address')} disabled={uploadingSlip}>← แก้ไขที่อยู่</button>
                   <button
                     className="btn btn-dark"
                     onClick={handlePaymentConfirmed}
                     id="confirm-payment-btn"
+                    disabled={uploadingSlip}
                   >
-                    ✓ ชำระเงินแล้ว
+                    {uploadingSlip ? 'กำลังอัปโหลด...' : '✓ แจ้งชำระเงินแล้ว'}
                   </button>
                 </div>
 

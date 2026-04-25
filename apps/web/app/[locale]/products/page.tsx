@@ -1,7 +1,6 @@
 'use client';
 
-import { useState, use } from 'react';
-import { PRODUCTS } from '../../../lib/products.data';
+import { useState, use, useEffect } from 'react';
 import { Navbar } from '../../../components/ui/Navbar';
 
 const ROAST_FILTERS = ['ทั้งหมด', 'Light', 'Medium Light', 'Medium', 'Medium Dark', 'Dark'];
@@ -15,8 +14,20 @@ export default function ProductsPage({ params: paramsPromise }: { params: Promis
   const [process, setProcess] = useState('ทั้งหมด');
   const locale = params?.locale ?? 'th';
 
-  const filtered = PRODUCTS.filter((p) => {
-    if (roast !== 'ทั้งหมด' && p.roastLevel !== roast) return false;
+  const [products, setProducts] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetch('/api/products')
+      .then(res => res.json())
+      .then(data => {
+        if (data.products) setProducts(data.products);
+        setLoading(false);
+      });
+  }, []);
+
+  const filtered = products.filter((p) => {
+    if (roast !== 'ทั้งหมด' && p.roast_level !== roast) return false;
     if (origin !== 'ทั้งหมด' && p.origin !== origin) return false;
     if (process !== 'ทั้งหมด' && p.process !== process) return false;
     return true;
@@ -67,7 +78,11 @@ export default function ProductsPage({ params: paramsPromise }: { params: Promis
           <div className="divider" style={{ marginBottom: '2.5rem' }} />
 
           {/* Grid */}
-          {filtered.length === 0 ? (
+          {loading ? (
+            <div style={{ textAlign: 'center', padding: '4rem', color: 'var(--ink-500)' }}>
+              <p>กำลังโหลดรายการสินค้า...</p>
+            </div>
+          ) : filtered.length === 0 ? (
             <div style={{ textAlign: 'center', padding: '4rem', color: 'var(--ink-500)' }}>
               <p style={{ fontSize: '3rem', marginBottom: '1rem' }}>☕</p>
               <p>ไม่พบสินค้าที่ตรงกับตัวกรอง</p>
@@ -77,22 +92,33 @@ export default function ProductsPage({ params: paramsPromise }: { params: Promis
               {filtered.map((p) => (
                 <a key={p.id} href={`/${locale}/products/${p.slug}`} className="product-card" style={{ textDecoration: 'none' }}>
                   <div className="product-img">
-                    <span className="product-img-emoji">☕</span>
+                    {p.image_url ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={p.image_url} alt={p.name_th} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    ) : (
+                      <span className="product-img-emoji">☕</span>
+                    )}
                     <span className="product-origin-badge">{p.origin}</span>
                     {p.badge && <span className="product-new-badge">{p.badge}</span>}
                   </div>
                   <div className="product-body">
-                    <div className="product-process">{p.process} · {p.roastLevelTh}</div>
-                    <h2 className="product-name">{p.nameTh}</h2>
+                    <div className="product-process">{p.process} · {p.roast_level}</div>
+                    <h2 className="product-name">{p.name_th}</h2>
                     <div className="product-flavor-tags">
-                      {p.tagsTh.map((tag) => (
+                      {(p.flavor_notes || []).map((tag: string) => (
                         <span key={tag} className="flavor-tag">{tag}</span>
                       ))}
                     </div>
                     <div className="product-footer-row">
                       <div>
-                        <div className="product-price">฿{p.variants[0].retailPrice}</div>
-                        <div className="product-weight">{p.variants[0].weightGram}g</div>
+                        {p.product_variants?.length > 0 ? (
+                          <>
+                            <div className="product-price">฿{p.product_variants[0].retail_price}</div>
+                            <div className="product-weight">{p.product_variants[0].weight_gram}g</div>
+                          </>
+                        ) : (
+                          <div className="product-price">ติดต่อสั่งปลูก</div>
+                        )}
                       </div>
                       <span className="btn btn-outline btn-sm">ดูรายละเอียด</span>
                     </div>

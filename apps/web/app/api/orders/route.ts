@@ -95,10 +95,45 @@ export async function POST(request: NextRequest) {
 
   await admin.from('payments').insert({
     order_id: order.id,
-    provider: 'gbprimepay',
+    provider: 'promptpay', // Changed from gbprimepay since we use direct promptpay now
     amount: total,
     status: 'PENDING',
   });
+
+  // Try to send emails (non-blocking)
+  try {
+    const { sendOrderConfirmation, sendAdminOrderAlert } = await import('../../../lib/email');
+    
+    // Get user email if available (guest might not have one, or maybe it's in a profile)
+    // For now, if the user is logged in, we get their email from auth
+    let customerEmail = null;
+    if (user?.id) {
+      const { data: userData } = await admin.auth.admin.getUserById(user.id);
+      customerEmail = userData?.user?.email;
+    }
+    
+    // Admin alert
+    await sendAdminOrderAlert({
+      orderId: order.id,
+      customerName: shippingAddress.recipient_name,
+      phone: shippingAddress.phone,
+      total,
+      province: shippingAddress.province,
+    });
+
+    // Customer confirmation
+    if (customerEmail) {
+      await sendOrderConfirmation({
+        to: customerEmail,
+        orderId: order.id,
+        customerName: shippingAddress.recipient_name,
+        items: items.map((i: any) => ({ name: i.product_name_th, qty: i.quantity, price: i.unit_price })),
+        total,
+      });
+    }
+  } catch (emailErr) {
+    console.error('Failed to send order emails:', emailErr);
+  }
 
   return NextResponse.json({ order }, { status: 201 });
 }

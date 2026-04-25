@@ -42,6 +42,7 @@ export default function AdminDashboard() {
         <h1 className="admin-page-title">Dashboard</h1>
         <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
           <span style={{ fontSize: '0.85rem', color: 'var(--ink-500)' }}>15 เมษายน 2569</span>
+          <a href="/th/admin/b2b" className="btn btn-outline btn-sm">รายชื่อ B2B Partner →</a>
           <a href="/th" className="btn btn-outline btn-sm">← กลับหน้าร้าน</a>
         </div>
       </div>
