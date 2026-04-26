@@ -37,13 +37,24 @@ export async function GET(request: NextRequest) {
   return NextResponse.json({ orders: data });
 }
 
-/** POST /api/orders — create new order */
+/** POST /api/orders — create new order (guest + authenticated) */
 export async function POST(request: NextRequest) {
   const supabase = await createServerSupabaseClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  // Get user if logged in, but allow guest checkout (no auth required)
+  let userId: string | null = null;
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
+    userId = user?.id ?? null;
+  } catch {
+    userId = null;
+  }
 
   const body = await request.json();
   const { shippingAddress, items, note } = body;
+
+  if (!shippingAddress || !items || !Array.isArray(items) || items.length === 0) {
+    return NextResponse.json({ error: 'ข้อมูลไม่ครบถ้วน' }, { status: 400 });
+  }
 
   // Calculate totals
   const subtotal: number = items.reduce(
@@ -55,16 +66,16 @@ export async function POST(request: NextRequest) {
 
   const admin = createAdminClient();
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: orderRaw, error: orderErr } = await admin
     .from('orders')
     .insert({
-      user_id: user?.id ?? null,
+      user_id: userId,
       ...shippingAddress,
       subtotal,
       shipping_fee: shippingFee,
       total,
       note: note ?? null,
+      status: 'PENDING',
     })
     .select()
     .single();
@@ -104,12 +115,10 @@ export async function POST(request: NextRequest) {
   try {
     const { sendOrderConfirmation, sendAdminOrderAlert } = await import('../../../lib/email');
     
-    // Get user email if available (guest might not have one, or maybe it's in a profile)
-    // For now, if the user is logged in, we get their email from auth
-    let customerEmail = null;
-    if (user?.id) {
-      const { data: userData } = await admin.auth.admin.getUserById(user.id);
-      customerEmail = userData?.user?.email;
+    let customerEmail: string | null = null;
+    if (userId) {
+      const { data: userData } = await admin.auth.admin.getUserById(userId);
+      customerEmail = userData?.user?.email ?? null;
     }
     
     // Admin alert

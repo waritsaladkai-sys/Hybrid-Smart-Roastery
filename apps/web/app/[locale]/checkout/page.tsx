@@ -144,8 +144,8 @@ export default function CheckoutPage({ params: paramsPromise }: { params: Promis
             postal_code: addr.postalCode,
           },
           items: items.map(item => ({
-            product_id: item.productId ?? item.id,
-            variant_id: item.variantId ?? item.id,
+            product_id: item.productId ?? item.id.split('-')[0],
+            variant_id: item.variantId ?? item.id.split('-')[1] ?? item.id,
             product_name_th: item.nameTh,
             weight_gram: item.weightGram ?? 250,
             unit_price: item.price,
@@ -155,15 +155,19 @@ export default function CheckoutPage({ params: paramsPromise }: { params: Promis
         }),
       });
 
-      if (res.ok) {
-        const data = await res.json();
-        setOrderId(data.order?.id ?? null);
+      const data = await res.json();
+
+      if (!res.ok) {
+        setOrderError(data.error || 'เกิดข้อผิดพลาดในการสร้างออเดอร์');
+        setSubmitting(false);
+        return; // Stop here — don’t proceed to payment
       }
-      // Proceed to payment step even if API fails (guest checkout)
+
+      setOrderId(data.order?.id ?? null);
       setStep('payment');
-    } catch {
-      // Proceed anyway - order may be saved without auth
-      setStep('payment');
+    } catch (err) {
+      console.error(err);
+      setOrderError('ไม่สามารถสร้างออเดอร์ได้ กรุณาตรวจสอบอินเทอร์เน็ตและลองใหม่');
     } finally {
       setSubmitting(false);
     }
