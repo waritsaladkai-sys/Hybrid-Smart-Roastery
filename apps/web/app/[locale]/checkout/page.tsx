@@ -107,9 +107,19 @@ export default function CheckoutPage({ params: paramsPromise }: { params: Promis
   const [countdown, setCountdown] = useState(900); // 15 min
   const [submitting, setSubmitting] = useState(false);
   const [orderId, setOrderId] = useState<string | null>(null);
+  const [orderNumber, setOrderNumber] = useState<string | null>(null); // human-readable e.g. ORD-042891
   const [orderError, setOrderError] = useState('');
   const [slipFile, setSlipFile] = useState<File | null>(null);
   const [uploadingSlip, setUploadingSlip] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  const copyOrderNumber = () => {
+    if (!orderNumber) return;
+    navigator.clipboard.writeText(orderNumber).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  };
 
   const shipping = total >= 500 ? 0 : 50;
   const grandTotal = total + shipping;
@@ -164,6 +174,7 @@ export default function CheckoutPage({ params: paramsPromise }: { params: Promis
       }
 
       setOrderId(data.order?.id ?? null);
+      setOrderNumber(data.order?.order_number ?? null);
       setStep('payment');
     } catch (err) {
       console.error(err);
@@ -465,8 +476,19 @@ export default function CheckoutPage({ params: paramsPromise }: { params: Promis
                   <span className="cs-val">฿{grandTotal.toLocaleString()}</span>
                 </div>
                 {orderId && (
-                  <div style={{ marginTop: '1rem', padding: '0.6rem 0.85rem', background: '#f0fdf4', borderRadius: '0.5rem', fontSize: '0.78rem', color: '#15803d' }}>
-                    ✓ ออเดอร์ #{orderId.slice(-8).toUpperCase()} ถูกบันทึกแล้ว
+                  <div style={{ marginTop: '1rem', padding: '0.75rem 1rem', background: '#f0fdf4', borderRadius: '0.5rem', border: '1px solid #bbf7d0' }}>
+                    <div style={{ fontSize: '0.72rem', color: '#15803d', fontWeight: 600, marginBottom: '0.25rem' }}>✓ ออเดอร์ถูกบันทึกแล้ว — เก็บเลขนี้ไว้ติดตามสถานะ</div>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem' }}>
+                      <span style={{ fontFamily: 'monospace', fontSize: '1.1rem', fontWeight: 700, color: '#15803d', letterSpacing: '0.08em' }}>
+                        {orderNumber ?? '#' + orderId.slice(-8).toUpperCase()}
+                      </span>
+                      <button
+                        onClick={copyOrderNumber}
+                        style={{ padding: '0.25rem 0.6rem', fontSize: '0.72rem', background: copied ? '#15803d' : '#fff', color: copied ? '#fff' : '#15803d', border: '1px solid #15803d', borderRadius: '0.4rem', cursor: 'pointer', transition: 'all 0.2s' }}
+                      >
+                        {copied ? '✓ คัดลอกแล้ว' : '📋 คัดลอก'}
+                      </button>
+                    </div>
                   </div>
                 )}
               </div>
@@ -475,7 +497,7 @@ export default function CheckoutPage({ params: paramsPromise }: { params: Promis
 
           {/* ── Step 3: Success ── */}
           {step === 'success' && (
-            <div style={{ textAlign: 'center', maxWidth: '560px', margin: '0 auto', padding: '4rem 0' }}>
+              <div style={{ textAlign: 'center', maxWidth: '560px', margin: '0 auto', padding: '4rem 0' }}>
               <div style={{ width: 80, height: 80, borderRadius: '50%', background: '#dcfce7', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1.5rem', fontSize: '2.5rem' }}>✓</div>
               <h2 style={{ fontFamily: 'var(--font-serif)', fontSize: '2.5rem', marginBottom: '0.75rem' }}>รับออเดอร์แล้ว!</h2>
               <p style={{ color: 'var(--ink-500)', marginBottom: '2rem', lineHeight: 1.7 }}>
@@ -483,21 +505,31 @@ export default function CheckoutPage({ params: paramsPromise }: { params: Promis
                 ทีมงานจะตรวจสอบการชำระและเริ่มคั่วกาแฟให้ทันที<br />
                 คาดว่าจะได้รับสินค้าภายใน <strong>3–5 วันทำการ</strong>
               </p>
+
+              {/* Order Number — prominent for Guest */}
+              {orderNumber && (
+                <div style={{ background: '#fefce8', border: '2px solid #fde047', borderRadius: '1rem', padding: '1.25rem 1.5rem', marginBottom: '1.5rem', textAlign: 'center' }}>
+                  <div style={{ fontSize: '0.75rem', color: '#a16207', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '0.4rem' }}>⚠️ กรุณาบันทึกเลขออเดอร์ไว้</div>
+                  <div style={{ fontFamily: 'monospace', fontSize: '2rem', fontWeight: 800, color: '#854d0e', letterSpacing: '0.12em', marginBottom: '0.5rem' }}>{orderNumber}</div>
+                  <div style={{ fontSize: '0.78rem', color: '#a16207', marginBottom: '0.75rem' }}>ใช้เลขนี้ในการติดต่อสอบถามสถานะออเดอร์กับทีมงาน</div>
+                  <button
+                    onClick={copyOrderNumber}
+                    style={{ padding: '0.5rem 1.5rem', background: copied ? '#15803d' : '#854d0e', color: '#fff', border: 'none', borderRadius: '0.5rem', fontFamily: 'inherit', fontSize: '0.85rem', cursor: 'pointer', transition: 'background 0.2s' }}
+                  >
+                    {copied ? '✓ คัดลอกแล้ว!' : '📋 คัดลอกเลขออเดอร์'}
+                  </button>
+                </div>
+              )}
+
               <div style={{ background: 'var(--bg-white)', border: '1px solid var(--border)', borderRadius: 'var(--r-md)', padding: '1.5rem', marginBottom: '2rem', textAlign: 'left' }}>
-                {orderId && (
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.75rem', paddingBottom: '0.75rem', borderBottom: '1px solid var(--border)' }}>
-                    <span style={{ fontWeight: 600 }}>เลขที่ออเดอร์</span>
-                    <span style={{ color: 'var(--accent)', fontFamily: 'monospace', fontSize: '0.9rem' }}>#{orderId.slice(-8).toUpperCase()}</span>
-                  </div>
-                )}
-                <div style={{ fontSize: '0.85rem', color: 'var(--ink-500)', lineHeight: 1.8 }}>
+                <div style={{ fontSize: '0.85rem', color: 'var(--ink-500)', lineHeight: 1.9 }}>
                   📦 คั่วสด → พักแก๊ส → จัดแพ็ค → Flash Express 48h<br />
-                  🔔 แจ้งเตือนทุกขั้นตอนผ่าน LINE OA<br />
-                  📍 ตรวจสอบสถานะได้ที่หน้า &quot;ติดตามออเดอร์&quot;
+                  🔔 แจ้งเตือนทุกขั้นตอนผ่าน LINE OA: <strong>@eightcoffee</strong><br />
+                  📞 สอบถามออเดอร์: <strong>080-479-0489</strong><br />
+                  📍 แจ้งเลขออเดอร์ <strong>{orderNumber ?? ''}</strong> เมื่อติดต่อ
                 </div>
               </div>
               <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center' }}>
-                <a href={`/${locale}/orders`} className="btn btn-outline">ติดตามออเดอร์</a>
                 <a href={`/${locale}/products`} className="btn btn-dark">เลือกซื้อต่อ →</a>
               </div>
             </div>
