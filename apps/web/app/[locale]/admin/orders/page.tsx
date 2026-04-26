@@ -28,7 +28,11 @@ export default function AdminOrdersPage() {
 
   const fetchOrders = async () => {
     try {
-      const res = await fetch('/api/orders');
+      // Use admin-specific endpoint so we see ALL orders (including guest orders)
+      const url = filter === 'ทั้งหมด'
+        ? '/api/admin/orders'
+        : `/api/admin/orders?status=${filter}`;
+      const res = await fetch(url);
       if (res.ok) {
         const data = await res.json();
         setOrders(data.orders || []);
@@ -42,7 +46,8 @@ export default function AdminOrdersPage() {
 
   useEffect(() => {
     fetchOrders();
-  }, []);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filter]);
 
   const filtered = filter === 'ทั้งหมด' ? orders : orders.filter(o => o.status === filter);
   const selectedOrder = orders.find(o => o.id === selectedId);
