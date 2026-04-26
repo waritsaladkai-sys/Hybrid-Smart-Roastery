@@ -140,8 +140,8 @@ export default function AdminOrdersPage() {
                     <tr key={o.id} style={{ cursor: 'pointer', background: selectedId === o.id ? 'var(--bg-muted)' : 'transparent' }} onClick={() => setSelectedId(selectedId === o.id ? null : o.id)}>
                       <td><span style={{ fontWeight: 500, color: 'var(--accent)', fontSize: '0.8rem' }}>{o.id.split('-')[0]}</span></td>
                       <td>
-                        <div style={{ fontWeight: 500 }}>{o.recipient_name}</div>
-                        <div style={{ fontSize: '0.78rem', color: 'var(--ink-500)' }}>{o.phone}</div>
+                        <div style={{ fontWeight: 500 }}>{o.ship_full_name}</div>
+                        <div style={{ fontSize: '0.78rem', color: 'var(--ink-500)' }}>{o.ship_phone}</div>
                       </td>
                       <td style={{ fontSize: '0.82rem', color: 'var(--ink-500)' }}>{o.order_items?.length || 0} รายการ</td>
                       <td style={{ fontFamily: 'var(--font-serif)' }}>฿{o.total?.toLocaleString()}</td>
@@ -177,9 +177,9 @@ export default function AdminOrdersPage() {
               </div>
               
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', fontSize: '0.875rem', marginBottom: '1.5rem' }}>
-                <div><span style={{ color: 'var(--ink-500)', width: '100px', display: 'inline-block' }}>ลูกค้า</span><strong>{selectedOrder.recipient_name}</strong></div>
-                <div><span style={{ color: 'var(--ink-500)', width: '100px', display: 'inline-block' }}>โทร</span>{selectedOrder.phone}</div>
-                <div><span style={{ color: 'var(--ink-500)', width: '100px', display: 'inline-block' }}>ที่อยู่</span>{selectedOrder.address_line} {selectedOrder.district} {selectedOrder.province} {selectedOrder.postal_code}</div>
+                <div><span style={{ color: 'var(--ink-500)', width: '100px', display: 'inline-block' }}>ลูกค้า</span><strong>{selectedOrder.ship_full_name}</strong></div>
+                <div><span style={{ color: 'var(--ink-500)', width: '100px', display: 'inline-block' }}>โทร</span>{selectedOrder.ship_phone}</div>
+                <div><span style={{ color: 'var(--ink-500)', width: '100px', display: 'inline-block' }}>ที่อยู่</span>{selectedOrder.ship_address} {selectedOrder.ship_district} {selectedOrder.ship_province} {selectedOrder.ship_postcode}</div>
                 
                 <div style={{ marginTop: '0.5rem', borderTop: '1px solid var(--border)', paddingTop: '0.5rem' }}>
                    <div style={{ fontWeight: 600, marginBottom: '0.5rem' }}>รายการสินค้า</div>

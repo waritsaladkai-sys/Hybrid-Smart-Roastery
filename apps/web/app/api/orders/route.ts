@@ -70,7 +70,12 @@ export async function POST(request: NextRequest) {
     .from('orders')
     .insert({
       user_id: userId,
-      ...shippingAddress,
+      ship_full_name: shippingAddress.recipient_name,
+      ship_phone: shippingAddress.phone,
+      ship_address: shippingAddress.address_line,
+      ship_district: shippingAddress.district,
+      ship_province: shippingAddress.province,
+      ship_postcode: shippingAddress.postal_code,
       subtotal,
       shipping_fee: shippingFee,
       total,
