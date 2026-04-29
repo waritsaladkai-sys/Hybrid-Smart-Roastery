@@ -55,7 +55,9 @@ export default function ProductDetailPage({ params: paramsPromise }: { params: P
   const handleAddToCart = () => {
     if (!variant) return;
     addItem({
-      id: `${product.id}-${variant.weight_gram}`,
+      id: `${product.id}-${variant.id}`,   // composite key for cart dedup
+      productId: product.id,               // real UUID for order insert
+      variantId: variant.id,               // real UUID for order insert
       slug: product.slug,
       nameTh: product.name_th,
       origin: product.origin,

@@ -154,8 +154,8 @@ export default function CheckoutPage({ params: paramsPromise }: { params: Promis
             postal_code: addr.postalCode,
           },
           items: items.map(item => ({
-            product_id: item.productId ?? item.id.split('-')[0],
-            variant_id: item.variantId ?? item.id.split('-')[1] ?? item.id,
+            product_id: item.productId,   // real UUID from product detail page
+            variant_id: item.variantId,   // real UUID from product detail page
             product_name_th: item.nameTh,
             weight_gram: item.weightGram ?? 250,
             unit_price: item.price,
