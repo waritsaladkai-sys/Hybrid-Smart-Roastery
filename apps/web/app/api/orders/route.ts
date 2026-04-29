@@ -80,7 +80,7 @@ export async function POST(request: NextRequest) {
       shipping_fee: shippingFee,
       total,
       note: note ?? null,
-      status: 'PENDING',
+      // status defaults to 'PENDING_PAYMENT' via DB enum default — do not override
     })
     .select()
     .single();

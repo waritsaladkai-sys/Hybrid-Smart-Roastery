@@ -4,7 +4,7 @@
 import { useState, useEffect } from 'react';
 
 const STATUS_MAP: Record<string, { label: string; cls: string; nextLabel: string | null; nextStatus: string | null }> = {
-  PENDING:         { label: 'รอชำระ', cls: 'badge-yellow', nextLabel: null, nextStatus: null },
+  PENDING_PAYMENT: { label: 'รอชำระ', cls: 'badge-yellow', nextLabel: null, nextStatus: null },
   PENDING_REVIEW:  { label: 'ตรวจสอบสลิป', cls: 'badge-yellow', nextLabel: 'ยืนยันยอด', nextStatus: 'PAID' },
   PAID:            { label: 'ชำระแล้ว', cls: 'badge-blue', nextLabel: 'เริ่มคั่ว', nextStatus: 'ROASTING' },
   ROASTING:        { label: 'กำลังคั่ว', cls: 'badge-yellow', nextLabel: 'พร้อมส่ง', nextStatus: 'READY_TO_SHIP' },
@@ -13,9 +13,9 @@ const STATUS_MAP: Record<string, { label: string; cls: string; nextLabel: string
   DELIVERED:       { label: 'ส่งถึงแล้ว', cls: 'badge-gray', nextLabel: null, nextStatus: null },
 };
 
-const STATUS_FILTERS = ['ทั้งหมด', 'PENDING', 'PENDING_REVIEW', 'PAID', 'ROASTING', 'READY_TO_SHIP', 'SHIPPED', 'DELIVERED'];
+const STATUS_FILTERS = ['ทั้งหมด', 'PENDING_PAYMENT', 'PENDING_REVIEW', 'PAID', 'ROASTING', 'READY_TO_SHIP', 'SHIPPED', 'DELIVERED'];
 const STATUS_FILTER_LABELS: Record<string, string> = {
-  'ทั้งหมด': 'ทั้งหมด', 'PENDING': 'รอชำระ', 'PENDING_REVIEW': 'ตรวจสลิป', 'PAID': 'ชำระแล้ว',
+  'ทั้งหมด': 'ทั้งหมด', 'PENDING_PAYMENT': 'รอชำระ', 'PENDING_REVIEW': 'ตรวจสลิป', 'PAID': 'ชำระแล้ว',
   'ROASTING': 'กำลังคั่ว', 'READY_TO_SHIP': 'รอส่ง', 'SHIPPED': 'จัดส่ง', 'DELIVERED': 'ส่งถึงแล้ว',
 };
 
